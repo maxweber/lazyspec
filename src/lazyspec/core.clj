@@ -11,9 +11,9 @@
                 (map test-case (f fns))
                 {:doc (str name ": " doc)}))))))
 
-(def Scenario (clasp "Scenario" #(apply concat %)))
+(def Scenario (clasp "Scenario" flatten))
 
-(def Feature (clasp "Feature" identity))
+(def Feature (clasp "Feature" flatten))
 
 (defn- block [name]
   (fn [& fns]
@@ -29,3 +29,21 @@
 (def When (block "When"))
 
 (def Then (block "Then"))
+
+(defn capture [context fun f]
+  (with-meta (fn []
+               (let [r (f)
+                     bindings (fun r)]
+                 (apply swap! context assoc (apply concat bindings))
+                 r))
+    (meta f)))
+
+(defn with-context [context f & args]
+  (with-doc (fn []
+              (apply f (map #(do
+                               (if (keyword? %)
+                                 (if-let [val (% @context)]
+                                   val
+                                   %)
+                                 %)) args)))
+    (resolve-fn-doc f)))
